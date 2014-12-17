@@ -1,7 +1,6 @@
-﻿#include<stdio.h>
-#include<map>
-#include<queue>
-#include<set>
+﻿#include <stdio.h>
+#include <vector>
+#include <conio.h>
 #define NONE '.'
 #define WHITE 'W'
 #define BLACK 'B'
@@ -10,16 +9,6 @@
 #define UP 'U'
 #define RIGHT 'R'
 #define DOWN 'D'
-#define FILE
-
-char map[8][9];
-
-char moveList[4] = { LEFT, UP, RIGHT, DOWN };
-
-unsigned long long int goalState = 0;
-unsigned long long int wallState = 0;
-
-std::set<unsigned long long int> alreadyEntered;
 
 //숫자 n의 b번째 bit를 v로 설정.(0번째부터 시작)
 void setBit(unsigned long long int* n, long long int x, long long int y, long long int v)
@@ -35,6 +24,16 @@ int getBit(unsigned long long int n, long long int x, long long int y)
 {
 	return (n >> (y * 8 + x)) & 0x1;
 }
+
+char map[8][9];
+
+char moveList[4] = { LEFT, UP, RIGHT, DOWN };
+
+unsigned long long int goalState = 0;
+
+std::vector<int> goalX;
+std::vector<int> goalY;
+
 
 struct Case
 {
@@ -57,7 +56,7 @@ struct Case
 				{
 					if (getBit(newCase.m_State, x, y) == 1)
 					{
-						if (y>0 && map[y - 1][x] != BLACK&& getBit(newCase.m_State,x,y-1) != 1)
+						if (y>0 && map[y - 1][x] != BLACK&& getBit(newCase.m_State, x, y - 1) != 1)
 						{
 							setBit(&newCase.m_State, x, y, 0);
 							setBit(&newCase.m_State, x, y - 1, 1);
@@ -73,7 +72,7 @@ struct Case
 				{
 					if (getBit(newCase.m_State, x, y) == 1)
 					{
-						if (x<7 && map[y][x + 1] != BLACK && getBit(newCase.m_State, x + 1, y) != 1)
+						if (x < 7 && map[y][x + 1] != BLACK && getBit(newCase.m_State, x + 1, y) != 1)
 						{
 							setBit(&newCase.m_State, x, y, 0);
 							setBit(&newCase.m_State, x + 1, y, 1);
@@ -89,7 +88,7 @@ struct Case
 				{
 					if (getBit(newCase.m_State, x, y) == 1)
 					{
-						if (y<7 && map[y + 1][x] != BLACK && getBit(newCase.m_State, x, y + 1) != 1)
+						if (y < 7 && map[y + 1][x] != BLACK && getBit(newCase.m_State, x, y + 1) != 1)
 						{
 							setBit(&newCase.m_State, x, y, 0);
 							setBit(&newCase.m_State, x, y + 1, 1);
@@ -120,22 +119,48 @@ struct Case
 	}
 };
 
-bool isChecked(unsigned long long int state)
-{
-	if (alreadyEntered.find(state) == alreadyEntered.end())
-	{
-		return false;
-	}
+Case nowCase;
 
-	return true;
+void printBoard()
+{
+	system("cls");
+	for (int y = 0; y < 8; y++)
+	{
+		for (int x = 0; x < 8; x++)
+		{
+			if (map[y][x] == GOAL)
+			{
+				if (getBit(nowCase.m_State, x, y) == 1)
+				{
+					printf("▩");
+				}
+				else
+				{
+					printf("▣");
+				}
+			}
+			else if (map[y][x] == BLACK)
+			{
+				printf("■");
+			}
+			else if (getBit(nowCase.m_State, x, y) == 1)
+			{
+				printf("□");
+			}
+			else
+			{
+				printf("▒");
+			}
+		}
+		printf("\n");
+	}
 }
 
-std::queue<Case> moveCase;
 
 int main()
 {
 	int moveNum = 0;
-	Case firstCase;
+	
 
 	freopen("input.txt", "r", stdin);
 
@@ -144,70 +169,45 @@ int main()
 		scanf("%s", map[y]);
 	}
 
-#ifdef FILE
-	freopen("output.txt", "w", stdout);
-#endif
-
 	for (int y = 0; y < 8; y++)
 	{
 		for (int x = 0; x < 8; x++)
 		{
 			if (map[y][x] == WHITE)
 			{
-				setBit(&firstCase.m_State, x, y, 1);
+				setBit(&nowCase.m_State, x, y, 1);
 			}
 
 			if (map[y][x] == GOAL)
 			{
-				setBit(&goalState, x, y, 1);
-			}
-
-			if (map[y][x] == BLACK)
-			{
-				setBit(&wallState,x,y,1);
+				goalX.push_back(x);
+				goalY.push_back(y);
 			}
 		}
 	}
 
-	moveCase.push(firstCase);
-	alreadyEntered.insert(firstCase.m_State);
+	
 
-	for (int move = 0;; move++)
+	for (;;)
 	{
-		int caseSize = moveCase.size();
+		printBoard();
+		char key = getch();
 
-		if (caseSize == 0)
+		switch (key)
 		{
-			printf("path not found.\n");
-			return 0;
-		}
-
-		printf("move : %d, case : %d\n", move, caseSize);
-
-		for (int i = 0; i < caseSize; i++)
-		{
-			Case nowCase = moveCase.front();
-			Case nextCase;
-			moveCase.pop();
-
-			//도착
-			if (nowCase.m_State == goalState)
-			{
-				printf("%s\n", nowCase.m_Move.c_str());
-				return 0;
-			}
-
-			for (int j = 0; j < 4; j++)
-			{
-				nextCase = nowCase.getNextCase(moveList[j]);
-				if (!isChecked(nextCase.m_State))
-				{
-					moveCase.push(nextCase);
-					alreadyEntered.insert(nextCase.m_State);
-				}
-			}
+		case 'a':
+			nowCase = nowCase.getNextCase(LEFT);
+			break;
+		case 'w':
+			nowCase = nowCase.getNextCase(UP);
+			break;
+		case 's':
+			nowCase = nowCase.getNextCase(DOWN);
+			break;
+		case 'd':
+			nowCase = nowCase.getNextCase(RIGHT);
+			break;
 		}
 	}
-
 	return 0;
 }
