@@ -3,6 +3,7 @@
 #include <queue>
 #include <algorithm>
 #include <iterator>
+#include <chrono>
 #define NONE '.'
 #define WHITE 'W'
 #define BLACK 'B'
@@ -24,6 +25,8 @@ std::vector<int> goalX;
 std::vector<int> goalY;
 
 int goalLength[8][8];
+
+int moveWeight = 10;
 
 //숫자 n의 b번째 bit를 v로 설정.(0번째부터 시작)
 void setBit(unsigned long long int* n, long long int x, long long int y, long long int v)
@@ -148,7 +151,7 @@ struct Case
 
 	int heuristic() const
 	{
-		return m_Move.size() / 10 + getMinLengthToGoal();
+		return m_Move.size() / moveWeight + getMinLengthToGoal();
 	}
 
 	bool operator<(const Case& rhs) const
@@ -276,7 +279,7 @@ void initLengthToGoal(int x, int y, int dis)
 
 int main(int argc, char** argv)
 {
-	if (argc != 2)
+	if (argc != 3)
 	{
 		printf("arg error\n");
 		return -1;
@@ -285,7 +288,9 @@ int main(int argc, char** argv)
 	int moveNum = 0;
 	Case firstCase;
 
-	freopen(argv[1], "r", stdin);
+	moveWeight = atoi(argv[1]);
+
+	freopen(argv[2], "r", stdin);
 
 	for (int y = 0; y < 8; y++)
 	{
@@ -320,7 +325,15 @@ int main(int argc, char** argv)
 		initLengthToGoal(goalX[i], goalY[i], 0);
 	}
 
+	auto begin = std::chrono::steady_clock::now();
+
 	getMinCase(firstCase);
+
+	auto end = std::chrono::steady_clock::now();
+
+	double time_ms = std::chrono::duration <double, std::milli>(end - begin).count();
+
+	printf("%lf ms\n", time_ms);
 
 	return 0;
 }
