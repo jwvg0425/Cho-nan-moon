@@ -18,6 +18,7 @@ unsigned long long int goalState = 0;
 unsigned long long int wallState = 0;
 
 std::map<unsigned long long int, int> alreadyEntered;
+std::map<unsigned long long int, std::string> answerMap;
 
 std::vector<int> goalX;
 std::vector<int> goalY;
@@ -44,7 +45,7 @@ struct Case
 	unsigned long long int m_State = 0;
 	std::string m_Move = "";
 
-	Case getNextCase(char dir)
+	Case getNextCase(char dir) const
 	{
 		Case newCase;
 
@@ -147,27 +148,7 @@ struct Case
 
 	int heuristic() const
 	{
-		if (cost > 0)
-		{
-			return cost;
-		}
-
-		int maxLength = 0;
-
-		for (int y = 0; y < 8; y++)
-		{
-			for (int x = 0; x < 8; x++)
-			{
-				if (getBit(m_State, x, y) == 1 && goalLength[y][x] > maxLength)
-				{
-					maxLength = goalLength[y][x];
-				}
-			}
-		}
-
-		cost = maxLength;
-
-		return cost;
+		return m_Move.size() / 10 + getMinLengthToGoal();
 	}
 
 	bool operator<(const Case& rhs) const
@@ -175,13 +156,13 @@ struct Case
 		return heuristic() > rhs.heuristic();
 	}
 
-	mutable int cost = -1;
 	mutable int minLength = -1;
 };
 
+
 void getMinCase(const Case& startCase)
 {
-	int minNum = -1; //일반적으로 최단 거리가 이거보다 먼 경우는 없을거라고 기대.
+	int minNum = -1; 
 
 	std::priority_queue<Case> queue[2];
 	int index = 0;
