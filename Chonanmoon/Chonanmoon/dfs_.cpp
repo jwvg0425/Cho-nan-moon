@@ -1,8 +1,8 @@
 ﻿#include<stdio.h>
-#include<map>
-#include<queue>
-#include<set>
-#include<hash_map>
+#include <map>
+#include <queue>
+#include <algorithm>
+#include <iterator>
 #define NONE '.'
 #define WHITE 'W'
 #define BLACK 'B'
@@ -12,11 +12,7 @@
 #define RIGHT 'R'
 #define DOWN 'D'
 
-
-FILE* file;
 char map[8][9];
-
-char moveList[4] = { LEFT, UP, RIGHT, DOWN };
 
 unsigned long long int goalState = 0;
 unsigned long long int wallState = 0;
@@ -27,7 +23,6 @@ std::vector<int> goalX;
 std::vector<int> goalY;
 
 int goalLength[8][8];
-std::set<int> entered;
 
 //숫자 n의 b번째 bit를 v로 설정.(0번째부터 시작)
 void setBit(unsigned long long int* n, long long int x, long long int y, long long int v)
@@ -127,8 +122,11 @@ struct Case
 		return newCase;
 	}
 	
-	int getMinLengthToGoal()
+	int getMinLengthToGoal() const
 	{
+		if (minLength > 0)
+			return minLength;
+
 		int maxLength = 0;
 
 		for (int y = 0; y < 8; y++)
@@ -142,104 +140,116 @@ struct Case
 			}
 		}
 
-		return maxLength + m_Move.size();
+		minLength = maxLength + m_Move.size();
+
+		return minLength;
 	}	
 
-	double getAverageLength()
+	int heuristic() const
 	{
-		int sumLength = 0;
-		int num = 0;
+		if (cost > 0)
+		{
+			return cost;
+		}
+
+		int maxLength = 0;
 
 		for (int y = 0; y < 8; y++)
 		{
 			for (int x = 0; x < 8; x++)
 			{
-				if (getBit(m_State, x, y) == 1)
+				if (getBit(m_State, x, y) == 1 && goalLength[y][x] > maxLength)
 				{
-					num++;
-					sumLength += goalLength[y][x];
+					maxLength = goalLength[y][x];
 				}
 			}
 		}
 
-		return (double)sumLength / num;
+		cost = maxLength;
+
+		return cost;
 	}
+
+	bool operator<(const Case& rhs) const
+	{
+		return heuristic() > rhs.heuristic();
+	}
+
+	mutable int cost = -1;
+	mutable int minLength = -1;
 };
 
-int minNum = 64; //일반적으로 최단 거리가 이거보다 먼 경우는 없을거라고 기대.
-
-//방향 목록을 골에서 평균적으로 제일 가까운 애가 앞에 오도록 정렬함.
-void sortDirByCase(Case& nowCase, int* dirList)
+void getMinCase(const Case& startCase)
 {
-	float moveLength[4] = { 0, };
+	int minNum = -1; //일반적으로 최단 거리가 이거보다 먼 경우는 없을거라고 기대.
 
-	for (int i = 0; i < 4; i++)
+	std::priority_queue<Case> queue[2];
+	int index = 0;
+
+	queue[index].push(startCase);
+
+	while (!queue[index].empty())
 	{
-		dirList[i] = moveList[i];
-		moveLength[i] = nowCase.getNextCase(dirList[i]).getAverageLength();
-	}
+		auto nowCase = queue[index].top();
+		queue[index].pop();
 
-	for (int i = 1; i < 4; i++)
-	{
-		int key = moveLength[i];
-		int dirKey = moveList[i];
-		int subIdx = i - 1;
-
-		while (subIdx >= 0 && moveLength[subIdx]>key)
+		std::vector<int> moveList = { LEFT, UP, RIGHT, DOWN };
+		std::vector<Case> nextCase;
+		std::transform(moveList.begin(), moveList.end(), std::back_inserter(nextCase), [&nowCase](int dir)
 		{
-			moveLength[subIdx + 1] = moveLength[subIdx];
-			dirList[subIdx + 1] = dirList[subIdx];
-			subIdx--;
-		}
-		moveLength[subIdx + 1] = key;
-		dirList[subIdx + 1] = dirKey;
-	}
+			return nowCase.getNextCase(dir);
+		});
 
-}
-
-void getMinCase(Case& nowCase)
-{
-	auto it = alreadyEntered.find(nowCase.m_State);
-
-	//이미 더 짧게 도착한 적 있는 경우
-	if (it != alreadyEntered.end())
-	{
-		if (it->second <= nowCase.m_Move.size())
+		for (auto& next : nextCase)
 		{
-			return;
+			if (minNum != -1 && next.getMinLengthToGoal() >= minNum)
+				continue;
+
+			auto it = alreadyEntered.find(next.m_State);
+
+			//이미 더 짧게 도착한 적 있는 경우
+			if (it != alreadyEntered.end())
+			{
+				if (it->second <= next.m_Move.size())
+				{
+					continue;
+				}
+				else
+				{
+					it->second = next.m_Move.size();
+				}
+			}
+			else
+			{
+				alreadyEntered[next.m_State] = next.m_Move.size();
+			}
+
+			if (next.m_State == goalState)
+			{
+				minNum = next.m_Move.size();
+				printf("move : %d, path : %s\n", next.m_Move.size(), next.m_Move.c_str());
+
+				//이 시점에서 가망 없는 애들 싹 다 비우기
+				int nextIndex = (index + 1) % 2;
+
+				//갱신된 최단 거리보다 더 짧게 도착 가능한 애들만 남기고 나머지 다 버림
+				while (!queue[index].empty())
+				{
+					if (queue[index].top().getMinLengthToGoal() < minNum)
+					{
+						queue[nextIndex].push(queue[index].top());
+					}
+
+					queue[index].pop();
+				}
+
+				index = nextIndex;
+
+				break;
+			}
+
+			queue[index].push(next);
 		}
-		else
-		{
-			it->second = nowCase.m_Move.size();
-		}
-	}
-	else
-	{
-		alreadyEntered[nowCase.m_State] = nowCase.m_Move.size();
-	}
-
-	if (nowCase.getMinLengthToGoal() >= minNum)
-	{
-		return; // 가망 없음.
-	}
-
-
-	if (nowCase.m_State == goalState)
-	{
-		minNum = nowCase.m_Move.size();
-		printf("move : %d, path : %s\n", nowCase.m_Move.size(), nowCase.m_Move.c_str());
-		fprintf(file, "move : %d, path : %s\n", nowCase.m_Move.size(), nowCase.m_Move.c_str());
-		return;
-	}
-
-	//int dirList[4];
-
-	//더 빨리 답을 찾을 거라 기대되는 순서로 방향 정렬.
-	//sortDirByCase(nowCase, dirList);
-
-	for (int i = 0; i < 4; i++)
-	{
-		getMinCase(nowCase.getNextCase(moveList[i]));
 	}
 }
 
@@ -248,6 +258,8 @@ void initLengthToGoal(int x, int y, int dis)
 	//이미 더 빨리 도착
 	if (goalLength[y][x] != 0 && goalLength[y][x] < dis)
 		return;
+
+	std::vector<int> moveList = { LEFT, UP, RIGHT, DOWN };
 
 	goalLength[y][x] = dis;
 
@@ -281,19 +293,23 @@ void initLengthToGoal(int x, int y, int dis)
 }
 
 
-int main()
+int main(int argc, char** argv)
 {
+	if (argc != 2)
+	{
+		printf("arg error\n");
+		return -1;
+	}
+
 	int moveNum = 0;
 	Case firstCase;
 
-	freopen("input.txt", "r", stdin);
+	freopen(argv[1], "r", stdin);
 
 	for (int y = 0; y < 8; y++)
 	{
 		scanf("%s", map[y]);
 	}
-
-	file = (FILE*)fopen("output.txt","w");
 
 	for (int y = 0; y < 8; y++)
 	{
@@ -325,6 +341,5 @@ int main()
 
 	getMinCase(firstCase);
 
-	fclose(file);
 	return 0;
 }
